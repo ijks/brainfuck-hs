@@ -1,21 +1,40 @@
 module Tape
-    ( Tape
+    ( Cell
+    , Tape
     , empty
+    , getCell
     , modify
+    , set
+    , increment
+    , decrement
     ) where
 
-import Data.Map (Map)
+import Data.Map (Map, (!))
 import qualified Data.Map as Map
 
-newtype Tape = Tape { unTape :: Map Int Int }
+type Cell = Int
+
+newtype Tape = Tape { unTape :: Map Int Cell }
 
 empty :: Tape
 empty = Tape Map.empty
 
-modify :: (Int -> Int) -> Int -> Tape -> Tape
-modify f index (Tape tape) =
-    Tape $ Map.alter f' index tape
+getCell :: Int -> Tape -> Cell
+getCell ix (Tape tape) = tape ! ix
+
+modify :: (Cell -> Cell) -> Int -> Tape -> Tape
+modify f ix (Tape tape) =
+    Tape $ Map.alter f' ix tape
     where
         f' m = Just $ case m of
             Just x -> f x
             Nothing -> 0
+
+set :: Cell -> Int -> Tape -> Tape
+set x = modify (const x)
+
+increment :: Int -> Tape -> Tape
+increment = Tape.modify (+ 1)
+
+decrement :: Int -> Tape -> Tape
+decrement = Tape.modify (subtract 1)
