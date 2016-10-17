@@ -9,7 +9,7 @@ module Program
     , loopEnd
     ) where
 
-import Data.Vector (Vector, (!))
+import Data.Vector (Vector, (!), (!?))
 import qualified Data.Vector as Vector
 import Data.Maybe (mapMaybe)
 import Control.Monad.State
@@ -35,8 +35,8 @@ type Program = Vector Command
 empty :: Program
 empty = Vector.fromList []
 
-getCommand :: Int -> Program -> Command
-getCommand = flip (!)
+getCommand :: Int -> Program -> Maybe Command
+getCommand = flip (!?)
 
 parse :: String -> Program
 parse = Vector.fromList . mapMaybe parseCommand

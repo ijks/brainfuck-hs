@@ -9,18 +9,19 @@ module Tape
     , decrement
     ) where
 
-import Data.Map (Map, (!))
+import Data.Map (Map)
 import qualified Data.Map as Map
 
 type Cell = Int
 
 newtype Tape = Tape { unTape :: Map Int Cell }
+    deriving (Show)
 
 empty :: Tape
 empty = Tape Map.empty
 
 getCell :: Int -> Tape -> Cell
-getCell ix (Tape tape) = tape ! ix
+getCell ix (Tape tape) = Map.findWithDefault 0 ix tape
 
 modify :: (Cell -> Cell) -> Int -> Tape -> Tape
 modify f ix (Tape tape) =
@@ -28,7 +29,7 @@ modify f ix (Tape tape) =
     where
         f' m = Just $ case m of
             Just x -> f x
-            Nothing -> 0
+            Nothing -> f 0
 
 set :: Cell -> Int -> Tape -> Tape
 set x = modify (const x)
