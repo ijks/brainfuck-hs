@@ -1,41 +1,45 @@
 module Tape
-    ( Cell
-    , Tape
+    ( Tape
     , empty
-    , getCell
-    , modify
+    , goLeft
+    , goRight
+    , currentCell
     , set
     , increment
     , decrement
     ) where
 
-import Data.Map (Map)
-import qualified Data.Map as Map
+import Data.List (intercalate)
 
-type Cell = Int
+data Tape a = Tape [a] a [a]
 
-newtype Tape = Tape { unTape :: Map Int Cell }
-    deriving (Show)
+instance Show a => Show (Tape a) where
+    show (Tape l x r) =
+        concat ["... ", trailing l, " ", show x, " ", trailing r, " ..."]
+        where
+            trailing = intercalate " " . take 10 . map show
 
-empty :: Tape
-empty = Tape Map.empty
+empty :: Num a => Tape a
+empty = Tape zeros 0 zeros
+    where zeros = repeat 0
 
-getCell :: Int -> Tape -> Cell
-getCell ix (Tape tape) = Map.findWithDefault 0 ix tape
+goRight :: Tape a -> Tape a
+goRight (Tape ls x (r:rs)) = Tape (x:ls) r rs
 
-modify :: (Cell -> Cell) -> Int -> Tape -> Tape
-modify f ix (Tape tape) =
-    Tape $ Map.alter f' ix tape
-    where
-        f' m = Just $ case m of
-            Just x -> f x
-            Nothing -> f 0
+goLeft :: Tape a -> Tape a
+goLeft (Tape (l:ls) x rs) = Tape ls l (x:rs)
 
-set :: Cell -> Int -> Tape -> Tape
+currentCell :: Tape a -> a
+currentCell (Tape _ x _) = x
+
+modify :: (a -> a) -> Tape a -> Tape a
+modify f (Tape l x r) = Tape l (f x) r
+
+set :: a -> Tape a -> Tape a
 set x = modify (const x)
 
-increment :: Int -> Tape -> Tape
-increment = Tape.modify (+ 1)
+increment :: Num a => Tape a -> Tape a
+increment = modify (+ 1)
 
-decrement :: Int -> Tape -> Tape
-decrement = Tape.modify (subtract 1)
+decrement :: Num a => Tape a -> Tape a
+decrement = modify (subtract 1)

@@ -1,18 +1,15 @@
 module Program
     ( Command(..)
-    , needsIO
     , Program
-    , empty
-    , getCommand
+    -- , program
     , parse
-    , loopBegin
-    , loopEnd
     ) where
 
-import Data.Vector (Vector, (!), (!?))
-import qualified Data.Vector as Vector
-import Data.Maybe (mapMaybe)
-import Control.Monad.State
+import Control.Arrow (left)
+
+import Text.Megaparsec hiding (parse)
+import qualified Text.Megaparsec as Megaparsec
+import Text.Megaparsec.String
 
 data Command
     = GoLeft
@@ -21,60 +18,30 @@ data Command
     | Decrement
     | PutChar
     | GetChar
-    | BeginLoop
-    | EndLoop
+    | Loop Program
     deriving (Eq, Show)
 
-needsIO :: Command -> Bool
-needsIO PutChar = True
-needsIO GetChar = True
-needsIO _ = False
+type Program = [Command]
 
-type Program = Vector Command
+command :: Parser Command
+command = choice
+    [ GoLeft <$ char '<'
+    , GoRight <$ char '>'
+    , Increment <$ char '+'
+    , Decrement <$ char '-'
+    , PutChar <$ char '.'
+    , GetChar <$ char ','
+    , loop
+    ]
 
-empty :: Program
-empty = Vector.fromList []
+loop :: Parser Command
+loop = Loop <$> between (char '[') (char ']') program
 
-getCommand :: Int -> Program -> Maybe Command
-getCommand = flip (!?)
+comment :: Parser ()
+comment = skipMany (noneOf ['<', '>', '+', '-', '.', ',', '[', ']'])
 
-parse :: String -> Program
-parse = Vector.fromList . mapMaybe parseCommand
-    where
-        parseCommand char =
-            case char of
-                '<' -> Just GoLeft
-                '>' -> Just GoRight
-                '+' -> Just Increment
-                '-' -> Just Decrement
-                '.' -> Just PutChar
-                ',' -> Just GetChar
-                '[' -> Just BeginLoop
-                ']' -> Just EndLoop
-                _   -> Nothing
+program :: Parser Program
+program = many $ between comment comment command
 
-loopBegin :: Int -> Program -> Int
-loopBegin start program = evalState (search (start - 1)) 0
-    where
-        search ix = do
-            let continue = search (ix - 1)
-            depth <- get
-            case program ! ix of
-                BeginLoop
-                    | depth == 0 -> return ix
-                    | otherwise -> put (depth - 1) >> continue
-                EndLoop -> put (depth + 1) >> continue
-                _ -> continue
-
-loopEnd :: Int -> Program -> Int
-loopEnd start program = evalState (search (start + 1)) 0
-    where
-        search ix = do
-            let continue = search (ix + 1)
-            depth <- get
-            case program ! ix of
-                EndLoop
-                    | depth == 0 -> return ix
-                    | otherwise -> put (depth - 1) >> continue
-                BeginLoop -> put (depth + 1) >> continue
-                _ -> continue
+parse :: String -> Either String Program
+parse input = left parseErrorPretty $ Megaparsec.parse program "" input

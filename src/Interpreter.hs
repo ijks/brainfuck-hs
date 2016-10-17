@@ -2,82 +2,67 @@
 {-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE RecordWildCards #-}
 
+-- Inspiration from:
+-- https://github.com/quchen/articles/blob/master/write_yourself_a_brainfuck.md
+-- https://gist.github.com/adzeitor/4119051
+-- http://rickardlindberg.me/writing/reflections-on-programming/2012-06-17-a-beautiful-brainfuck-implementation/
+
 module Interpreter
     ( Interpreter
     , create
-    , step
+    , getOutput
     , run
     ) where
 
-import Control.Monad
 import Data.Char (chr, ord)
+import Data.List (uncons)
 
-import MonadChar
-import Program (Program, Command(..))
-import qualified Program
-import Tape (Tape, Cell)
-import qualified Tape
+import Program
+import Tape
 
 data Interpreter =
     Interp
-        { program :: Program
-        , pc :: Int
-        , tape :: Tape
-        , pointer :: Int
+        { tape :: Tape Int
+        , input :: [Char]
+        , output :: [Char]
         }
     deriving (Show)
 
-create :: Program -> Interpreter
-create program =
+getOutput :: Interpreter -> [Char]
+getOutput = output
+
+create :: String -> Interpreter
+create input =
     Interp
-        { program = program
-        , pc = 0
-        , tape = Tape.empty
-        , pointer = 0
+        { tape = Tape.empty
+        , input = input
+        , output = []
         }
 
-execute :: MonadChar m => Command -> Interpreter -> m Interpreter
-execute command interp @ Interp {..} =
-    let cell = Tape.getCell pointer tape
-    in case command of
+run :: Program -> Interpreter -> Interpreter
+run [] interp = interp
+run program @ (command:rest) interp @ Interp { .. } =
+    case command of
         GoLeft ->
-            return interp { pointer = pointer - 1 }
+            continue interp { tape = goLeft tape }
         GoRight ->
-            return interp { pointer = pointer + 1 }
+            continue interp { tape = goRight tape }
         Increment ->
-            return interp { tape = Tape.increment pointer tape }
+            continue interp { tape = increment tape }
         Decrement ->
-            return interp { tape = Tape.decrement pointer tape }
-        PutChar -> do
-                putC $ chr cell
-                return interp
-        GetChar -> do
-                char <- getC
-                return interp { tape = Tape.set (ord char) pointer tape }
-        BeginLoop ->
-            return interp
-                { pc =
-                    if cell <= 0 then
-                        Program.loopEnd pc program + 1
-                    else
-                        pc
-                }
-        EndLoop ->
-            return interp
-                { pc =
-                    if cell > 0 then
-                        Program.loopBegin pc program + 1
-                    else
-                        pc
-                }
-
-step :: MonadChar m => Interpreter -> Maybe (m Interpreter)
-step interp @ Interp {..} = do
-    command <- Program.getCommand pc program
-    return $ execute command interp { pc = pc + 1}
-
-run :: MonadChar m => Interpreter -> m ()
-run interp =
-    case step interp of
-        Just interp' -> interp' >>= run
-        Nothing -> return ()
+            continue interp { tape = decrement tape }
+        PutChar ->
+            continue interp { output = output ++ [chr $ currentCell tape] }
+        GetChar ->
+            case input of
+                [] ->
+                    interp
+                (c:cs) ->
+                    continue interp { tape = set (ord c) tape, input = cs }
+        Loop body ->
+            if currentCell tape > 0 then
+                run program $ run body interp
+            else
+                continue interp
+    where
+        continue = run rest
