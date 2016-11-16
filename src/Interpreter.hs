@@ -8,7 +8,7 @@
 -- http://rickardlindberg.me/writing/reflections-on-programming/2012-06-17-a-beautiful-brainfuck-implementation/
 
 module Interpreter
-    ( Interpreter
+    ( Interpreter(..)
     , create
     , getOutput
     , run
@@ -34,7 +34,7 @@ getOutput = output
 create :: String -> Interpreter
 create input =
     Interp
-        { tape = Tape.empty
+        { tape = infinite
         , input = input
         , output = []
         }
@@ -56,7 +56,7 @@ run program @ (command:rest) interp @ Interp { .. } =
         GetChar ->
             case input of
                 [] ->
-                    interp
+                    continue interp { tape = set 0 tape }
                 (c:cs) ->
                     continue interp { tape = set (ord c) tape, input = cs }
         Loop body ->
